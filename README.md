@@ -7,7 +7,7 @@ leaflet1.3.1を使用しています。
 
 ## デモ
   https://codeformatsudo.github.io/busstop_otaki/
-		
+
 
 ## 使い方
 * 自分のアカウントでGithubにログインし、このリポジトリのmasterをforkしてください。
@@ -56,6 +56,13 @@ https://html5-editor.net/
 ### GitHub Pagesでサイトを公開する
 * SettingsのGitHub PagesのSouceでdocsフォルダを指定するとGithubページとして公開できます。
 
+### ローカル環境の作成
+
+```
+cd busstop_otaki
+npm install
+npm run gulp
+```
 
 ### ライセンス
 * Leaflet.AwesomeMarkersとcolored markersはMITライセンスの下でライセンスされています。
