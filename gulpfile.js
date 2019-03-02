@@ -15,11 +15,26 @@ var concat = require('gulp-concat');
 var destDir = 'docs/'; // 出力用ディレクトリ
 var assetsDir = 'common/'; // 案件によってcommonとかassetsとかあるんでとりあえず変数にした
 
+const browserSyncOption = {
+  server: {
+    baseDir: destDir,
+    index: 'index.html'
+  },
+  reloadOnRestart: true
+};
+
+function sync(done) {
+  browserSync.init(browserSyncOption);
+  done();
+}
+
 gulp.task('browser-sync', function () {
-	browserSync({
+  console.log('hogehoge')
+	browserSync.init({
 		server: {
 			baseDir: destDir
-		}
+		},
+    reloadOnRestart: true
 	});
 });
 
@@ -39,12 +54,12 @@ gulp.task('css', function () {
 	return gulp.src('resource/**/*.css')
 		.pipe(cache('css-cache')) // cssをキャッシュさせつつ、
 		.pipe(gulp.dest(destDir)) // destDirに出力して、
-		.pipe(browserSync.stream()) // browser-syncで反映させる。
+		//.pipe(browserSync.stream()) // browser-syncで反映させる。
 });
 
 // jsの圧縮リネーム
 gulp.task('jsmin', function () {
-	gulp.src(['resource/' + assetsDir + 'js/**/*.js',
+	return gulp.src(['resource/' + assetsDir + 'js/**/*.js',
     '!resource/' + assetsDir + 'js/**/*.min.js']) // jQueryなどの、すでに.minなjsは除外する。
 		.pipe(plumber()) // gulp-plumberを咬ますとエラー時にgulpが止まらない（cssみたいにgulp-notify書いてもエラー通知が何故か出ないのでそのまま）。
 		.pipe(changed(destDir + assetsDir + 'js/')) // 変更されたjsのみをgulp.dest対象にする。
@@ -60,32 +75,40 @@ gulp.task('js', function () {
 	return gulp.src('resource/**/*.js')
 		.pipe(cache('js-cache')) // jsをキャッシュさせつつ、
 		.pipe(gulp.dest(destDir)) // destDirに出力して、
-		.pipe(browserSync.stream()) // browser-syncで反映させる。
+		//.pipe(browserSync.stream()) // browser-syncで反映させる。
 });
 gulp.task('geojson', function () {
 	return gulp.src('resource/**/*.geojson')
 		.pipe(plumber())
 		.pipe(concat('data.geojson'))
 		.pipe(gulp.dest(destDir + assetsDir + 'data/')) // destDirに出力して、
-		.pipe(browserSync.stream()) // browser-syncで反映させる。
+		//.pipe(browserSync.stream()) // browser-syncで反映させる。
 });
 
 gulp.task('copyResource', function () {
 	return gulp.src(['resource/**/*', '!resource/' + assetsDir + 'sass/', '!resource/' + assetsDir + 'sass/*.scss', '!resource/' + assetsDir + 'data/']) // sassディレクトリ以外の全ファイルを対象にし、
 		.pipe(cache('resource-cache')) // キャッシュさせて、
 		.pipe(gulp.dest(destDir)) // destDirに出力して、
-		.pipe(browserSync.stream()) // browser-syncで反映させる。
+		//.pipe(browserSync.stream()) // browser-syncで反映させる。
 });
+
+// watch&リロード 処理
+function watchFiles(done) {
+  const browserReload = () => {
+    browserSync.reload();
+    done();
+  };
+  // browser-syncで反映させるものをbrowserReload関数に任せる
+  gulp.watch(['resource/**/*.+(jpg|jpeg|gif|png|html|php)']).on('change', gulp.series('copyResource', browserReload)); // css,sass,js以外に変更があったら実行。
+  gulp.watch(['resource/**/*.scss']).on('change', gulp.series('sass', browserReload)); // sassに変更があったら実行。cssを吐き出すので下のwatchが動く。
+  gulp.watch(['resource/**/*.css']).on('change', gulp.series('css', browserReload)); // cssに変更があったら実行。つまりsassを変更したらセットで実行となる。
+  gulp.watch(['resource/**/*.js']).on('change', gulp.series('jsmin', browserReload)); // jsに変更があったら実行。.minしたjsを吐き出すので下のwatchが動く。
+  gulp.watch(['resource/**/*.min.js']).on('change', gulp.series('js', browserReload)); // .min.jsに変更があったら実行。つまりjsを変更したらセットで実行となる。
+  gulp.watch(['resource/**/*.geojson'].on('change', gulp.series('geojson', browserReload));
+}
+
 
 // gulp-watchで監視
 // ['browser-sync','copyResource','sass','jsmin','geojson']を実行してからdefaultとして内容を実行。
 // gulp-watchを使うとフォルダに追加したファイルも対象に監視してくれるのでgulp再実行の必要がない。
-gulp.task('default', function () {
-	gulp.series('browser-sync', 'copyResource', 'sass', 'jsmin', 'geojson');
-	gulp.watch(['resource/**/*.+(jpg|jpeg|gif|png|html|php)'], gulp.series('copyResource')); // css,sass,js以外に変更があったら実行。
-	gulp.watch(['resource/**/*.scss'], gulp.series('sass')); // sassに変更があったら実行。cssを吐き出すので下のwatchが動く。
-	gulp.watch(['resource/**/*.css'], gulp.series('css')); // cssに変更があったら実行。つまりsassを変更したらセットで実行となる。
-	gulp.watch(['resource/**/*.js'], gulp.series('jsmin')); // jsに変更があったら実行。.minしたjsを吐き出すので下のwatchが動く。
-	gulp.watch(['resource/**/*.min.js'], gulp.series('js')); // .min.jsに変更があったら実行。つまりjsを変更したらセットで実行となる。
-	gulp.watch(['resource/**/*.geojson'], gulp.series('geojson'));
-});
+gulp.task('default', gulp.series('copyResource', 'sass', 'jsmin', 'geojson', sync, watchFiles));
