@@ -80,23 +80,12 @@ gulp.task('copyResource', function () {
 // gulp-watchで監視
 // ['browser-sync','copyResource','sass','jsmin','geojson']を実行してからdefaultとして内容を実行。
 // gulp-watchを使うとフォルダに追加したファイルも対象に監視してくれるのでgulp再実行の必要がない。
-gulp.task('default', ['browser-sync', 'copyResource', 'sass', 'jsmin', 'geojson'], function () {
-	watch(['resource/**/*.+(jpg|jpeg|gif|png|html|php)'], function (event) {
-		gulp.start(['copyResource']); // css,sass,js以外に変更があったら実行。
-	});
-	watch(['resource/**/*.scss'], function (event) {
-		gulp.start(['sass']); // sassに変更があったら実行。cssを吐き出すので下のwatchが動く。
-	});
-	watch(['resource/**/*.css'], function (event) {
-		gulp.start(['css']); // cssに変更があったら実行。つまりsassを変更したらセットで実行となる。
-	});
-	watch(['resource/**/*.js'], function (event) {
-		gulp.start(['jsmin']); // jsに変更があったら実行。.minしたjsを吐き出すので下のwatchが動く。
-	});
-	watch(['resource/**/*.min.js'], function (event) {
-		gulp.start(['js']); // .min.jsに変更があったら実行。つまりjsを変更したらセットで実行となる。
-	});
-	watch(['resource/**/*.geojson'], function (event) {
-		gulp.start(['geojson']);
-	});
+gulp.task('default', function () {
+	gulp.series('browser-sync', 'copyResource', 'sass', 'jsmin', 'geojson');
+	gulp.watch(['resource/**/*.+(jpg|jpeg|gif|png|html|php)'], gulp.series('copyResource')); // css,sass,js以外に変更があったら実行。
+	gulp.watch(['resource/**/*.scss'], gulp.series('sass')); // sassに変更があったら実行。cssを吐き出すので下のwatchが動く。
+	gulp.watch(['resource/**/*.css'], gulp.series('css')); // cssに変更があったら実行。つまりsassを変更したらセットで実行となる。
+	gulp.watch(['resource/**/*.js'], gulp.series('jsmin')); // jsに変更があったら実行。.minしたjsを吐き出すので下のwatchが動く。
+	gulp.watch(['resource/**/*.min.js'], gulp.series('js')); // .min.jsに変更があったら実行。つまりjsを変更したらセットで実行となる。
+	gulp.watch(['resource/**/*.geojson'], gulp.series('geojson'));
 });
