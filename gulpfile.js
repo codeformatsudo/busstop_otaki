@@ -2,113 +2,121 @@ var gulp = require('gulp');
 var browserSync = require('browser-sync');
 var sass = require('gulp-sass');
 var plumber = require('gulp-plumber');
+var sourcemaps = require('gulp-sourcemaps');
 var csscomb = require('gulp-csscomb');
 var notify = require('gulp-notify');
 var autoprefixer = require('gulp-autoprefixer');
+var imagemin = require('gulp-imagemin');
+var imageminJpg = require('imagemin-jpeg-recompress');
+var imageminPng = require('imagemin-pngquant');
+var imageminGif = require('imagemin-gifsicle');
+var svgmin = require('gulp-svgmin');
 var uglify = require('gulp-uglify');
 var rename = require('gulp-rename');
 var watch = require('gulp-watch');
 var changed = require('gulp-changed');
 var cache = require('gulp-cached');
 var concat = require('gulp-concat');
+var jshint = require('gulp-jshint');
 
+var srcDir = 'resource/'; //作業ディレクトリ
 var destDir = 'docs/'; // 出力用ディレクトリ
-var assetsDir = 'common/'; // 案件によってcommonとかassetsとかあるんでとりあえず変数にした
+var assetsDir = 'common/';
 
-const browserSyncOption = {
-  server: {
-    baseDir: destDir,
-    index: 'index.html'
-  },
-  reloadOnRestart: true
+//Sass
+gulp.task('sass', function () {
+	return gulp.src(srcDir + assetsDir + 'sass/**/*.scss')
+		.pipe(plumber())
+		.pipe(sourcemaps.init())
+		.pipe(sass({
+			outputStyle: 'expanded'
+		}))
+		.pipe(autoprefixer({
+			broweser: ['last 2 version', 'iOS >= 8.1', 'Android = 4.4'],
+			cascade: false
+		}))
+		.pipe(sourcemaps.write())
+		.pipe(gulp.dest(destDir + assetsDir + 'css/'));
+});
+
+
+//img jpg,png,gif
+gulp.task('imagemin', function () {
+	return gulp.src(srcDir + assetsDir + 'img/photo/*.+(jpg|jpeg|png|gif)')
+		.pipe(changed(destDir + assetsDir + 'img/photo/'))
+		.pipe(imagemin([
+			imageminPng(),
+			imageminJpg(),
+			imageminGif({
+				interlaced: false,
+				optimizationLevel: 3,
+				colors: 180
+			})
+		]))
+		.pipe(gulp.dest(destDir + assetsDir + 'img/photo/'));
+});
+
+//img svg
+gulp.task('svgmin', function () {
+	return gulp.src(srcDir + assetsDir + 'img/*.+svg')
+		.pipe(changed(destDir + assetsDir + 'img/'))
+		.pipe(svgmin())
+		.pipe(gulp.dest(destDir + assetsDir + 'img/photo/'));
+});
+
+//js
+gulp.task('js.concat', function () {
+	return gulp.src(
+			srcDir + assetsDir + 'js/main.js'
+		)
+		.pipe(plumber())
+		.pipe(jshint())
+		.pipe(jshint.reporter('default'))
+		.pipe(concat('bundle.js'))
+		.pipe(gulp.dest(destDir + assetsDir + 'js/'));
+});
+
+gulp.task('js.compress', function () {
+	return gulp.src(destDir + assetsDir + 'js/bundle.js')
+		.pipe(plumber())
+		.pipe(uglify())
+		.pipe(rename('bundle.min.js'))
+		.pipe(gulp.dest(destDir + assetsDir + 'js/'));
+});
+
+// Browser Sync
+var browserSyncOption = {
+	server: {
+		baseDir: destDir,
+		index: "index.html"
+	},
+	reloadOnRestart: true
 };
 
-function sync(done) {
-  browserSync.init(browserSyncOption);
-  done();
+function browserSync(done) {
+	browserSync.init(browserSyncOption);
+	done();
 }
 
 gulp.task('browser-sync', function () {
-  console.log('hogehoge')
 	browserSync.init({
 		server: {
 			baseDir: destDir
 		},
-    reloadOnRestart: true
+		reloadOnRestart: true
 	});
 });
 
-gulp.task('sass', function () {
-	return gulp.src(['resource/' + assetsDir + 'sass/**/*.scss'])
-		.pipe(plumber({ // gulp-plumberを咬ますとエラー時にgulpが止まらない。
-			errorHandler: notify.onError('Error: <%= error.message %>') // gulp-notifyでエラー通知を表示
-		}))
-		.pipe(sass()) // gulp-sassでコンパイルし、
-		.pipe(autoprefixer({
-			browsers: ['last 2 versions', 'Android 3', 'ie 9']
-		})) // autoprefixerかけて、（対応ブラウザ。案件によって変更する）
-		.pipe(csscomb()) // gulp-csscombで整形してあげて、
-		.pipe(gulp.dest('resource/' + assetsDir + 'css/')) // とりあえずresource側cssフォルダに吐き出す。
-});
-gulp.task('css', function () {
-	return gulp.src('resource/**/*.css')
-		.pipe(cache('css-cache')) // cssをキャッシュさせつつ、
-		.pipe(gulp.dest(destDir)) // destDirに出力して、
-		//.pipe(browserSync.stream()) // browser-syncで反映させる。
-});
 
-// jsの圧縮リネーム
-gulp.task('jsmin', function () {
-	return gulp.src(['resource/' + assetsDir + 'js/**/*.js',
-    '!resource/' + assetsDir + 'js/**/*.min.js']) // jQueryなどの、すでに.minなjsは除外する。
-		.pipe(plumber()) // gulp-plumberを咬ますとエラー時にgulpが止まらない（cssみたいにgulp-notify書いてもエラー通知が何故か出ないのでそのまま）。
-		.pipe(changed(destDir + assetsDir + 'js/')) // 変更されたjsのみをgulp.dest対象にする。
-		.pipe(uglify({
-			preserveComments: 'some'
-		})) // uglifyでjsを圧縮するがライセンス表記を残す。
-		.pipe(rename({
-			suffix: '.min'
-		})) // .min付与
-		.pipe(gulp.dest('resource/' + assetsDir + 'js/')) // jsもとりあえずresource側jsフォルダに吐き出す。
-});
-gulp.task('js', function () {
-	return gulp.src('resource/**/*.js')
-		.pipe(cache('js-cache')) // jsをキャッシュさせつつ、
-		.pipe(gulp.dest(destDir)) // destDirに出力して、
-		//.pipe(browserSync.stream()) // browser-syncで反映させる。
-});
-gulp.task('geojson', function () {
-	return gulp.src('resource/**/*.geojson')
-		.pipe(plumber())
-		.pipe(concat('data.geojson'))
-		.pipe(gulp.dest(destDir + assetsDir + 'data/')) // destDirに出力して、
-		//.pipe(browserSync.stream()) // browser-syncで反映させる。
-});
-
-gulp.task('copyResource', function () {
-	return gulp.src(['resource/**/*', '!resource/' + assetsDir + 'sass/', '!resource/' + assetsDir + 'sass/*.scss', '!resource/' + assetsDir + 'data/']) // sassディレクトリ以外の全ファイルを対象にし、
-		.pipe(cache('resource-cache')) // キャッシュさせて、
-		.pipe(gulp.dest(destDir)) // destDirに出力して、
-		//.pipe(browserSync.stream()) // browser-syncで反映させる。
-});
-
-// watch&リロード 処理
+// Reload Browser
 function watchFiles(done) {
-  const browserReload = () => {
-    browserSync.reload();
-    done();
-  };
-  // browser-syncで反映させるものをbrowserReload関数に任せる
-  gulp.watch(['resource/**/*.+(jpg|jpeg|gif|png|html|php)']).on('change', gulp.series('copyResource', browserReload)); // css,sass,js以外に変更があったら実行。
-  gulp.watch(['resource/**/*.scss']).on('change', gulp.series('sass', browserReload)); // sassに変更があったら実行。cssを吐き出すので下のwatchが動く。
-  gulp.watch(['resource/**/*.css']).on('change', gulp.series('css', browserReload)); // cssに変更があったら実行。つまりsassを変更したらセットで実行となる。
-  gulp.watch(['resource/**/*.js']).on('change', gulp.series('jsmin', browserReload)); // jsに変更があったら実行。.minしたjsを吐き出すので下のwatchが動く。
-  gulp.watch(['resource/**/*.min.js']).on('change', gulp.series('js', browserReload)); // .min.jsに変更があったら実行。つまりjsを変更したらセットで実行となる。
-  gulp.watch(['resource/**/*.geojson'].on('change', gulp.series('geojson', browserReload));
+	const browserReload = function () {
+		browserSync.reload();
+		done();
+	};
+	gulp.watch(srcDir + assetsDir + 'sass/**/*.scss').on('change', gulp.series('sass', browserReload));
+	gulp.watch(srcDir + assetsDir + 'js/*.js').on('change', gulp.series('js.concat', 'js.compress', browserReload));
+	gulp.watch(srcDir + assetsDir + 'img/photo/*').on('change', gulp.series('imagemin', browserReload));
 }
 
-
-// gulp-watchで監視
-// ['browser-sync','copyResource','sass','jsmin','geojson']を実行してからdefaultとして内容を実行。
-// gulp-watchを使うとフォルダに追加したファイルも対象に監視してくれるのでgulp再実行の必要がない。
-gulp.task('default', gulp.series('copyResource', 'sass', 'jsmin', 'geojson', sync, watchFiles));
+gulp.task('default', gulp.series(gulp.parallel('browser-sync', 'sass', 'js.concat', 'js.compress', 'imagemin', 'svgmin'), gulp.series(browserSync, watchFiles)));

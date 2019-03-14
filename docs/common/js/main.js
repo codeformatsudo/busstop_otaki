@@ -29,9 +29,9 @@
 			.then(
 				function (data) {
 					var iniData = setData(data);
-					mapSetting(iniData)
+					mapSetting(iniData);
 				}
-			)
+			);
 	});
 
 	function mapSetting(data) {
@@ -42,7 +42,7 @@
 			zoomSize = parseFloat(data.zoomSize);
 		} else {
 			zoomSize = parseFloat(data.zoomSize) - 1;
-		};
+		}
 
 		//map
 		map = L.map('map', {
